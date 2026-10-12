@@ -1,5 +1,6 @@
 {
   "name": "padel-league-la-cure",
+  "account_id": "cf076240c489481a9a6af3fd7438a1f1",
   "main": "src/server/worker.ts",
   "compatibility_date": "2026-04-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -18,7 +19,7 @@
   "kv_namespaces": [
     {
       "binding": "CONFIRMATION_QUEUE",
-      "id": "00000000000000000000000000000000",
+      "id": "2a8b1f2753ce4ca1ba60540380c71d7a",
     },
   ],
 }
