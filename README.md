@@ -50,6 +50,12 @@ Le test crée un résultat de démonstration puis l'annule avec historique dans 
 
 Vérifier l'absence de carte obligatoire, les quotas gratuits, la région européenne de Neon, le coût CPU Workers, Workers KV, les Cron Triggers et les conditions d'utilisation pour un club. Ne pas activer de plan payant. Les pages officielles n'étaient pas accessibles depuis l'environnement de rédaction ; ces conditions ne sont pas garanties par ce dépôt.
 
+### Préparer Neon sans partager de connexion
+
+Dans le projet Neon, ouvrir **SQL Editor**, sélectionner la base `neondb`, copier le contenu de [db/bootstrap.sql](db/bootstrap.sql) et exécuter le script complet. Le résultat final doit indiquer **66 paires, 11 box et 66 inscriptions**. Le script crée les tables et importe les participants sans générer de secret ni de lien personnel ; il peut être relancé sans effacer les matchs existants.
+
+`npm run db:bootstrap-sql` régénère ce fichier depuis les migrations et les données canoniques. Le script généré est testé sur PostgreSQL embarqué ; son exécution dans Neon doit être confirmée dans l'éditeur SQL. La connexion privée peut ensuite être enregistrée directement comme secret `DATABASE_URL` dans Cloudflare, sans la transmettre dans une conversation.
+
 ### Créer et préparer la base
 
 1. Créer un projet Neon en région UE disponible, puis récupérer sa connexion PostgreSQL TLS dans un emplacement privé.

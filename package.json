@@ -19,7 +19,8 @@
     "export": "tsx scripts/export.ts",
     "test:browser": "playwright test",
     "credentials:generate": "tsx scripts/generate-secrets.ts",
-    "format": "prettier --write src scripts tests *.ts package.json tsconfig.json wrangler.jsonc index.html"
+    "format": "prettier --write src scripts tests *.ts package.json tsconfig.json wrangler.jsonc index.html",
+    "db:bootstrap-sql": "tsx scripts/bootstrap-sql.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.3.16",
