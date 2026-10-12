@@ -67,6 +67,12 @@ Les variantes de noms confirmées sont traitées par `aliases.json` et une migra
 
 ### Créer les secrets de production
 
+**Sans terminal :** télécharger [tools/generate-secrets.html](tools/generate-secrets.html), puis ouvrir le fichier sur son ordinateur dans un navigateur récent. Choisir et confirmer un mot de passe organisateur d’au moins 16 caractères ; l’outil génère `ADMIN_PASSWORD_HASH` et `LINK_ENCRYPTION_KEY` sans requête réseau. Enregistrer ces deux valeurs comme secrets dans **Cloudflare → Worker → Settings → Variables and Secrets**. Enregistrer également la chaîne de connexion Neon comme secret `DATABASE_URL`. Ne jamais transmettre ces valeurs dans une conversation. L’outil n’est pas inclus dans les fichiers publics de l’application et ne sauvegarde pas automatiquement les valeurs.
+
+L’adresse de production configurée est `https://padel-league-la-cure.fbrcls.workers.dev`. Après l’ajout des trois secrets, enregistrer/déployer les changements dans Cloudflare, puis ouvrir `/organisateur` avec le mot de passe choisi. La base doit avoir été préparée avec `db/bootstrap.sql`.
+
+**Avec terminal :**
+
 ```sh
 npm run credentials:generate
 ```
@@ -87,8 +93,8 @@ Changer `ADMIN_PASSWORD_HASH` invalide les sessions organisateur. Changer la cl�
 
 ### Déployer
 
-1. Créer un namespace avec `npx wrangler kv namespace create CONFIRMATION_QUEUE` puis remplacer l’identifiant fictif de `kv_namespaces` dans `wrangler.jsonc`. Ce namespace stocke uniquement des repères d’échéance, jamais de données joueurs.
-2. Remplacer `REPLACE` dans `wrangler.jsonc` par le sous-domaine du compte, et vérifier que `APP_ORIGIN` est exactement l'origine HTTPS publique, sans chemin ni barre finale.
+1. Le namespace `CONFIRMATION_QUEUE` du compte de l’organisateur est déjà configuré. Pour un autre compte uniquement, créer un namespace avec `npx wrangler kv namespace create CONFIRMATION_QUEUE` et mettre à jour son identifiant dans `wrangler.jsonc`. Il stocke uniquement des repères d’échéance.
+2. Vérifier que `APP_ORIGIN` correspond exactement à l’origine HTTPS publique, sans chemin ni barre finale. Le dépôt utilise déjà `https://padel-league-la-cure.fbrcls.workers.dev`.
 2. Vérifier que les trois secrets existent dans Cloudflare et que la base est préparée.
 3. Exécuter `npm run deploy`. Une garde refuse l'origine d'exemple.
 4. Vérifier la connexion organisateur, les paires, un score de démonstration et le Cron Trigger en conditions réelles. Aucun lien joueur n'est généré automatiquement en production : les créer depuis l'espace organisateur après ces vérifications.
