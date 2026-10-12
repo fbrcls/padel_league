@@ -32,7 +32,7 @@ Ces fichiers ont été fournis dans la conversation ; leur présence dans le dé
 - Chaque personne reçoit un **lien personnel sans mot de passe**.
 - Un joueur peut appartenir à plusieurs paires, y compris dans plusieurs box ou tableaux.
 - Son lien unique donne accès à toutes ses paires et aux box correspondantes.
-- Les doublons et variantes de noms doivent être vérifiés et fusionnés avant la distribution des liens. Exemples à vérifier : « Fred Romain / Frédéric Romain » et « Kevin Tulpinck / Kevin Tulpinckx ». Une ressemblance de noms ne suffit pas à établir l'identité.
+- L’organisateur a confirmé les identités « Fred Romain / Frédéric Romain », « Kevin Tulpinck / Kevin Tulpinckx » et les deux inscriptions « Manon ». Chacune utilise un seul accès personnel pour toutes ses paires.
 - Les liens doivent être privés, non devinables et remplaçables par l'organisateur en cas de divulgation.
 - Les coordonnées personnelles seront fournies ultérieurement. Elles ne sont pas nécessaires au lancement : l'organisateur distribue lui-même les liens.
 - Un joueur peut agir sur les matchs de ses paires et consulter les matchs et classements des box auxquelles il participe.
@@ -106,9 +106,9 @@ Le bonus de participation ne s'applique pas à un forfait. Tous les matchs confi
 3. Nombre total de victoires.
 4. Nombre total de jeux gagnés.
 
-L'interprétation proposée des confrontations directes est de comparer les points cumulés des matchs entre les paires à égalité. Le cas d'une égalité entre trois paires ou plus doit être précisé avant l'implémentation du départage.
+Les confrontations directes comparent les points cumulés des matchs entre les paires à égalité. Pour trois paires ou plus, établir un mini-classement des rencontres entre elles, puis utiliser les victoires globales et les jeux gagnés globaux sans recalculer un nouveau mini-classement pour les sous-groupes.
 
-Si tous les critères restent identiques, l'affichage ex æquo est le comportement proposé. L'organisateur a confirmé l'ordre des critères ; il n'a pas précisé de critère supplémentaire après les jeux gagnés.
+Si tous les critères restent identiques, afficher les paires ex æquo.
 
 Ces critères remplacent le différentiel de jeux et le tirage au sort prévus par le règlement initial.
 
@@ -116,7 +116,7 @@ Ces critères remplacent le différentiel de jeux et le tirage au sort prévus p
 
 Pour chaque paire : rang, joueurs, matchs joués confirmés, victoires, nuls, défaites, jeux gagnés, jeux perdus, différentiel de jeux et total des points. Le différentiel est informatif et n'intervient pas dans le départage.
 
-Les forfaits doivent être distingués des matchs effectivement joués. Leur effet précis sur la colonne « victoires » utilisée pour le départage reste à préciser ; aucun jeu gagné ou perdu ne sera inventé pour un forfait.
+Les forfaits sont distingués des matchs effectivement joués. Une victoire par forfait compte dans le nombre total de victoires pour le départage, sans jeux gagnés ou perdus fictifs.
 
 ## 8. Parcours et écrans de lancement
 
@@ -185,10 +185,9 @@ Le règlement initial prévoit deux montées et deux descentes par box, avec les
 10. Le classement applique les critères de départage dans l'ordre convenu.
 11. Les parcours de programmation, encodage et confirmation sont utilisables sur téléphone et ordinateur.
 
-## 13. Points à préciser sans élargir le périmètre
+## 13. Clôture du cycle
 
-- Calcul des confrontations directes pour une égalité impliquant trois paires ou plus.
-- Prise en compte d'une victoire par forfait dans le nombre de victoires servant au départage.
-- Traitement des résultats encodés ou contestés à la fin du cycle : délai de saisie et date de clôture définitive du classement.
-- Confirmation du comportement ex æquo lorsque tous les critères sont identiques.
-
+- Les matchs doivent avoir été joués du 12 octobre au 29 novembre 2026 inclus, heure belge.
+- La saisie des résultats est autorisée jusqu’au **1er décembre 2026 à 23 h 59**, heure belge.
+- Les confirmations automatiques et les contestations déjà ouvertes continuent ensuite jusqu’à résolution.
+- Le classement définitif peut être arrêté une fois tous les résultats traités ; aucune clôture automatique ne doit masquer une contestation en cours.

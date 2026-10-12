@@ -1,0 +1,14 @@
+INSERT INTO players(id,name) SELECT 'frederic-romain','Frédéric Romain' FROM players WHERE id='fred-romain' ON CONFLICT(id) DO NOTHING;
+INSERT INTO players(id,name) SELECT 'kevin-tulpinckx','Kevin Tulpinckx' FROM players WHERE id='kevin-tulpinck' ON CONFLICT(id) DO NOTHING;
+UPDATE pairs SET player1='frederic-romain' WHERE player1='fred-romain';
+UPDATE pairs SET player2='frederic-romain' WHERE player2='fred-romain';
+UPDATE pairs SET player1='kevin-tulpinckx' WHERE player1='kevin-tulpinck';
+UPDATE pairs SET player2='kevin-tulpinckx' WHERE player2='kevin-tulpinck';
+UPDATE matches SET author='frederic-romain' WHERE author='fred-romain';
+UPDATE matches SET submitted_by='frederic-romain' WHERE submitted_by='fred-romain';
+UPDATE matches SET author='kevin-tulpinckx' WHERE author='kevin-tulpinck';
+UPDATE matches SET submitted_by='kevin-tulpinckx' WHERE submitted_by='kevin-tulpinck';
+DELETE FROM sessions WHERE player_id IN ('fred-romain','frederic-romain','kevin-tulpinck','kevin-tulpinckx');
+DELETE FROM access_links WHERE player_id IN ('fred-romain','kevin-tulpinck');
+DELETE FROM idempotency WHERE actor IN ('fred-romain','kevin-tulpinck');
+DELETE FROM players WHERE id IN ('fred-romain','kevin-tulpinck');

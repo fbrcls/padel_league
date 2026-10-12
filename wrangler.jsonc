@@ -1,0 +1,24 @@
+{
+  "name": "padel-league-la-cure",
+  "main": "src/server/worker.ts",
+  "compatibility_date": "2026-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true,
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"],
+  },
+  "vars": {
+    "APP_ORIGIN": "https://padel-league-la-cure.REPLACE.workers.dev",
+  },
+  "kv_namespaces": [
+    {
+      "binding": "CONFIRMATION_QUEUE",
+      "id": "00000000000000000000000000000000",
+    },
+  ],
+}

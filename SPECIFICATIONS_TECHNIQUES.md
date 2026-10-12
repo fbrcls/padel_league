@@ -24,8 +24,8 @@ Les services ci-dessous proposent des offres gratuites connues, mais leurs condi
 | API | Hono sur Cloudflare Workers | Sessions, autorisations, matchs, validation et classement |
 | Fichiers statiques | Workers Static Assets | Distribution de l'interface sur la même adresse que l'API |
 | Stockage | PostgreSQL sur Neon | Données métier, sessions et historique |
-| Accès SQL | Drizzle ORM et pilote Neon compatible Workers | Requêtes typées, migrations et transactions |
-| Automatisation | Cloudflare Cron Trigger | Validation des résultats arrivés à échéance |
+| Accès SQL | Requêtes SQL paramétrées et pilote Neon compatible Workers | Migrations SQL explicites et transactions avec verrous |
+| Automatisation | Cloudflare Cron Trigger et Workers KV | Repères d’échéance et validation sans réveiller PostgreSQL inutilement |
 | Validation des entrées | Zod | Contrats partagés et contrôles côté serveur |
 | Tests | Vitest et Playwright | Règles métier, API et parcours sur navigateur |
 
@@ -55,7 +55,6 @@ src/
   shared/               Contrats et schémas de validation
   domain/               Points, classement et transitions métier
 db/
-  schema.ts             Modèle Drizzle
   migrations/           Migrations SQL versionnées
   seed/                 Données initiales vérifiées, sans liens ni secrets
 scripts/                Import, export et tâches d'exploitation
@@ -65,7 +64,7 @@ wrangler.jsonc          Configuration publique du Worker
 
 Prévoir des commandes pour installer depuis le verrouillage, démarrer, compiler, vérifier les types, tester, appliquer les migrations, importer les données et déployer. Le nom exact des commandes sera documenté lors de l'implémentation.
 
-Utiliser une version LTS de Node.js compatible avec Vite et Wrangler, épinglée dans le dépôt. Le développement local passe par Wrangler et une base PostgreSQL distincte de la production, locale ou distante de développement. Aucun test ne doit modifier les données réelles.
+Utiliser une version LTS de Node.js compatible avec Vite et Wrangler, épinglée dans le dépôt. Le développement local utilise la même API Hono via Node.js et une base PostgreSQL embarquée PGlite distincte de la production ; le bundle Workers et les primitives cryptographiques sont aussi vérifiés avec Wrangler. Aucun test ne doit modifier les données réelles.
 
 ## 4. Modèle de données
 
@@ -78,18 +77,16 @@ Identifiants UUID ; horodatages en `timestamptz` ; dates techniques en UTC. Les 
 | `cycles` | Nom, dates de début et fin, fuseau, état ouvert ou clôturé |
 | `categories` | Codes stables `OPEN` et `WOMEN_MIXED`, libellés français |
 | `boxes` | Cycle, catégorie, numéro ; unicité de cette combinaison |
-| `box_entries` | Affectation d'une paire à une box ; une seule affectation par paire et cycle |
-| `matches` | Box, deux inscriptions distinctes, date, auteur, état, version, horodatages |
-| `result_submissions` | Match, auteur et paire représentée, type joué/forfait, jeux ou paire forfait, échéance, validation |
-| `disputes` | Résultat concerné, auteur, score ou résultat proposé, commentaire facultatif, résolution |
-| `player_access_links` | Joueur, empreinte du jeton, copie chiffrée pour redistribution, révocation |
+| `entries` | Affectation d'une paire à une box ; une seule affectation par paire et cycle |
+| `matches` | Box, deux inscriptions distinctes, date, auteur, état, version, résultat courant, échéance et proposition de correction |
+| `access_links` | Joueur, empreinte du jeton, copie chiffrée pour redistribution, révocation |
 | `sessions` | Empreinte du jeton de session, rôle joueur/organisateur, joueur éventuel, expiration |
-| `audit_events` | Acteur, action, cible, date, données métier avant/après, sans secret |
+| `audit` | Acteur, action, cible, date, données métier avant/après, sans secret |
 | `job_runs` | Dernière exécution et résultat de la confirmation automatique |
 
 Utiliser des clés étrangères et des contraintes SQL pour les scores non négatifs, les participants distincts et les valeurs d'état. Les contrôles nécessitant plusieurs tables sont effectués dans une transaction.
 
-Un match joué possède deux scores ; un forfait possède la paire forfait et des scores nuls au sens SQL (`NULL`), sans score fictif. Un seul résultat courant est actif par match ; les anciennes soumissions restent disponibles pour l'historique.
+Un match joué possède deux scores ; un forfait possède la paire forfait et des scores nuls au sens SQL (`NULL`), sans score fictif. Le résultat courant et la contestation éventuelle sont stockés dans le match ; les états antérieurs et les motifs restent disponibles dans les événements d’audit.
 
 Plusieurs rencontres entre les mêmes inscriptions sont autorisées. Ne pas créer de contrainte d'unicité sur les deux adversaires. L'annulation est conservée en base et ne supprime pas l'historique.
 
@@ -175,11 +172,11 @@ Tester explicitement les courses entre confirmation automatique et contestation.
 
 Configurer un Cron Trigger toutes les cinq minutes (`*/5 * * * *`). L'échéance est calculée comme l'instant d'encodage plus 48 heures réelles, en UTC, et non comme deux jours calendaires locaux.
 
-Le traitement sélectionne les soumissions courantes en attente dont l'échéance est passée, confirme uniquement les matchs sans contestation ni annulation et enregistre l'audit. Il traite des lots bornés et continue les éléments restants lors de l'exécution suivante.
+Le Cron consulte d’abord les repères d’échéance dans Workers KV, enregistrés avant la validation transactionnelle d’une saisie. Il ne réveille PostgreSQL que lorsqu’une échéance est arrivée ou lors du rattrapage quotidien à minuit UTC, pour préserver les quotas de calcul Neon. Une indisponibilité KV empêche une nouvelle saisie de se terminer ; un repère resté après un rollback entraîne seulement une vérification supplémentaire. Le traitement SQL sélectionne les résultats courants en attente dont l’échéance est passée, confirme uniquement les matchs sans contestation ni annulation et enregistre l'audit. Il traite des lots bornés et continue les éléments restants lors de l'exécution suivante.
 
 Le traitement est idempotent ; plusieurs exécutions concurrentes ne valident pas deux fois un résultat. Conserver l'heure de dernière réussite et le nombre de validations pour diagnostic.
 
-Objectif nominal : confirmation entre 48 h et environ 48 h 05. Ce n'est pas une garantie de disponibilité de l'offre gratuite : une panne ou un quota peut retarder le traitement. L'espace organisateur doit signaler une tâche qui ne s'est pas exécutée depuis plus de 15 minutes et permettre un rattrapage sécurisé par le même traitement.
+Objectif nominal : confirmation entre 48 h et environ 48 h 05. Ce n'est pas une garantie de disponibilité de l'offre gratuite : une panne ou un quota peut retarder le traitement. L’espace organisateur affiche l’âge de la dernière vérification SQL ; une longue période sans échéance ne prouve pas une panne. Il doit signaler une vérification ancienne et permettre un rattrapage sécurisé par le même traitement.
 
 ## 9. Calcul du classement
 
@@ -192,7 +189,7 @@ Calcul côté serveur depuis les résultats courants confirmés ; aucun compteur
 - Trier par points, confrontations directes, nombre de victoires, puis jeux gagnés.
 - Le différentiel de jeux est affichable mais ne départage pas les équipes.
 
-Isoler ce calcul dans des fonctions testables indépendamment du navigateur et du stockage. Pour les confrontations directes, l'interprétation proposée est la somme des points obtenus entre les paires à égalité. Le calcul à trois paires ou plus, la victoire par forfait dans le nombre de victoires et le dernier ex æquo restent des décisions métier à confirmer ; ne pas présenter une règle arbitraire comme validée.
+Isoler ce calcul dans des fonctions testables indépendamment du navigateur et du stockage. Pour les confrontations directes, utiliser la somme des points obtenus entre les paires à égalité. Décisions confirmées : utiliser le mini-classement entre toutes les paires du groupe initial à égalité, sans recalcul récursif ; compter les victoires par forfait sans jeux fictifs ; afficher ex æquo après le dernier critère.
 
 ## 10. Données initiales et cycles suivants
 
@@ -200,7 +197,7 @@ Préparer un fichier structuré vérifié depuis les deux PDF : joueurs canoniqu
 
 Créer le premier cycle avec ses deux catégories et ses onze box. Générer les liens seulement dans l'environnement cible ; ne pas inclure de liens réels ou de clés dans les données de départ.
 
-Un nouveau cycle crée ses propres box et inscriptions. Les anciens résultats restent associés à leur cycle. La clôture définitive, le délai de saisie après le 29 novembre et le traitement des contestations ouvertes doivent être décidés avant d'automatiser la fermeture. La tâche de confirmation ne doit pas cesser arbitrairement à la fin du dernier jour de jeu.
+Un nouveau cycle crée ses propres box et inscriptions. Les anciens résultats restent associés à leur cycle. La saisie est autorisée jusqu’au 1er décembre 2026 à 23 h 59 belge pour les matchs du cycle ; les confirmations et contestations continuent ensuite jusqu’à résolution. La tâche de confirmation ne doit pas cesser arbitrairement à la fin du dernier jour de jeu.
 
 ## 11. Configuration, déploiement et budget
 
@@ -223,7 +220,7 @@ Le déploiement initial peut être effectué depuis la ligne de commande. L'auto
 - Cloudflare : hébergement statique, requêtes, CPU par requête et par tâche planifiée, nombre de tâches, domaine gratuit, absence de carte obligatoire.
 - Neon : stockage, calcul, connexions, éventuelle mise en veille, région UE, absence de carte obligatoire et disponibilité d'un export.
 - Vérifier les conditions d'utilisation applicables à une compétition de club, pas seulement un projet personnel.
-- Mesurer le coût de connexion organisateur, du classement et du traitement planifié ; 288 déclenchements quotidiens avec un intervalle de cinq minutes, même sans match à valider.
+- Mesurer le coût de connexion organisateur, du classement et du traitement planifié ; 288 déclenchements quotidiens avec un intervalle de cinq minutes, mais une interrogation KV seulement lorsqu’aucune échéance n’est arrivée. Vérifier aussi les quotas KV de lecture, liste, écriture et suppression.
 - Tester un premier accès après mise en veille éventuelle de la base ; afficher une attente et une erreur compréhensibles.
 - Consulter les quotas régulièrement ; ne pas promettre une gratuité illimitée ni une disponibilité garantie.
 
@@ -261,13 +258,10 @@ Vérifier HTTPS, cookie sécurisé, région de la base, quotas, mot de passe org
 
 Une compilation réussie seule ne suffit pas à autoriser l'ouverture aux joueurs.
 
-## 14. Points restant à confirmer
+## 14. Validation avant ouverture
 
-1. Conditions actuelles des offres gratuites sans carte, région UE et compatibilité de l'authentification avec les limites Workers.
-2. Identités des joueurs à fusionner dans les données initiales.
-3. Confrontations directes dans une égalité entre trois paires ou plus.
-4. Comptage des victoires par forfait pour le départage.
-5. Ex æquo après le dernier critère.
-6. Date de clôture définitive et traitement des encodages tardifs et contestations.
+1. Conditions actuelles des offres gratuites sans carte, région UE et quotas Workers distants.
+2. Déploiement réel, connexion à Neon, confirmation planifiée et restauration d’une sauvegarde.
+3. Essai des parcours par l’organisateur avant distribution des liens.
 
-Ces points ne changent pas le périmètre de lancement ; ils doivent être résolus à l'étape correspondante avant de considérer l'application prête.
+Les identités ambiguës, le mini-classement, les victoires par forfait, les ex æquo et la saisie jusqu’au 1er décembre ont été confirmés par l’organisateur pendant l’implémentation. Voir le README pour les commandes et l’état de validation.

@@ -1,0 +1,48 @@
+{
+  "name": "padel-league-la-cure",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch scripts/dev.ts",
+    "dev:web": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:prepare": "tsx scripts/prepare.ts",
+    "admin:password": "tsx scripts/password.ts",
+    "deploy": "npm run build && tsx scripts/deploy-preflight.ts && wrangler deploy",
+    "export": "tsx scripts/export.ts",
+    "test:browser": "playwright test",
+    "credentials:generate": "tsx scripts/generate-secrets.ts",
+    "format": "prettier --write src scripts tests *.ts package.json tsconfig.json wrangler.jsonc index.html"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.3.16",
+    "@hono/node-server": "1.19.17",
+    "@neondatabase/serverless": "1.2.0",
+    "hono": "4.13.13",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "concurrently": "9.2.5",
+    "jsonc-parser": "3.3.1",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "3.2.7",
+    "wrangler": "4.149.0"
+  }
+}
