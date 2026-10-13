@@ -14,7 +14,7 @@
     "crons": ["*/5 * * * *"],
   },
   "vars": {
-    "APP_ORIGIN": "https://padel-league.fbrcls.workers.dev",
+    "APP_ORIGIN": "https://padel-league.lacure.workers.dev",
   },
   "kv_namespaces": [
     {
