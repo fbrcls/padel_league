@@ -131,6 +131,11 @@ export function makeApp(db: Db, config: Config) {
     if (new Date(m.played_at) > now())
       fail(422, "Vous ne pouvez pas encoder le résultat d’un match futur.");
   }
+  async function lockActor(tx: Db, a: Actor) {
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+      a.role + ":" + actorKey(a),
+    ]);
+  }
   async function submit(tx: Db, m: Match, a: Actor, r: Result) {
     checkResult(r, m);
     await checkSubmission(tx, m);
@@ -139,24 +144,27 @@ export function makeApp(db: Db, config: Config) {
       m.entry_b,
     ]);
     const own = es.find((e) => membership(a, e));
-    if (!own) fail(403, "Vous ne participez pas à ce match.");
+    if (a.role !== "admin" && !own)
+      fail(403, "Vous ne participez pas à ce match.");
     const time = now(),
-      deadline = new Date(time.getTime() + 48 * 3600000);
-    // Register before commit: a failed registration rolls back the submission.
-    // A stale marker after a rollback causes only a harmless extra check.
-    await config.scheduleDeadline?.(deadline);
+      deadline =
+        a.role === "admin" ? null : new Date(time.getTime() + 48 * 3600000);
+    if (deadline) await config.scheduleDeadline?.(deadline);
     const [updated] = await tx.query<Match>(
-      "UPDATE matches SET status='pending',kind=$2,games_a=$3,games_b=$4,forfeiting_entry=$5,submitted_by=$6,submitted_entry=$7,submitted_at=$8,deadline=$9,version=version+1 WHERE id=$1 RETURNING *",
+      "UPDATE matches SET status=$2,kind=$3,games_a=$4,games_b=$5,forfeiting_entry=$6,submitted_by=$7,submitted_entry=$8,submitted_at=$9,deadline=$10,submitted_role=$11,confirmed_at=$12,version=version+1 WHERE id=$1 RETURNING *",
       [
         m.id,
+        a.role === "admin" ? "confirmed" : "pending",
         r.kind,
         r.kind === "played" ? r.games_a : null,
         r.kind === "played" ? r.games_b : null,
         r.kind === "forfeit" ? r.forfeiting_entry : null,
         a.player_id,
-        own!.id,
+        own?.id ?? null,
         time,
         deadline,
+        a.role,
+        a.role === "admin" ? time : null,
       ],
     );
     await audit(tx, actorKey(a), "submit", m.id, { before: m, after: updated });
@@ -383,12 +391,8 @@ export function makeApp(db: Db, config: Config) {
     const input = matchSchema.parse(await c.req.json()),
       a = actor(c),
       fingerprint = await hash(JSON.stringify(input));
-    if (a.role !== "player")
-      fail(403, "La création est réservée aux joueurs participants.");
     const out = await db.transaction(async (tx) => {
-      await tx.query("SELECT id FROM players WHERE id=$1 FOR UPDATE", [
-        a.player_id,
-      ]);
+      await lockActor(tx, a);
       const [old] = await tx.query(
         "SELECT * FROM idempotency WHERE actor=$1 AND key=$2",
         [actorKey(a), input.key],
@@ -408,7 +412,7 @@ export function makeApp(db: Db, config: Config) {
       ]);
       if (es.length !== 2 || es[0].box_id !== es[1].box_id)
         fail(422, "Choisissez deux paires distinctes de la même box.");
-      if (!es.some((e) => membership(a, e)))
+      if (a.role !== "admin" && !es.some((e) => membership(a, e)))
         fail(403, "Vous devez participer au match.");
       if (
         [es[0].player1, es[0].player2].some(
@@ -456,10 +460,7 @@ export function makeApp(db: Db, config: Config) {
       a = actor(c),
       fingerprint = await hash(JSON.stringify(input));
     const out = await db.transaction(async (tx) => {
-      if (a.role !== "player") fail(403, "Action réservée aux joueurs.");
-      await tx.query("SELECT id FROM players WHERE id=$1 FOR UPDATE", [
-        a.player_id,
-      ]);
+      await lockActor(tx, a);
       const [old] = await tx.query(
         "SELECT * FROM idempotency WHERE actor=$1 AND key=$2",
         [actorKey(a), input.key],
@@ -481,7 +482,7 @@ export function makeApp(db: Db, config: Config) {
         c.req.param("id"),
         a,
         input.version,
-        "participant",
+        a.role === "admin" ? "admin" : "participant",
       );
       if (m.status !== "scheduled") fail(409, "Un résultat a déjà été encodé.");
       const updated = await submit(tx, m, a, input.result);

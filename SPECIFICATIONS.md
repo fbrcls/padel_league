@@ -58,6 +58,7 @@ Un match joué peut aussi être encodé directement sans programmation préalabl
 - Le résultat est composé de deux nombres entiers positifs ou nuls, par exemple **18–9**.
 - Le score le plus élevé désigne le vainqueur ; deux scores égaux donnent un match nul.
 - N'importe lequel des quatre joueurs peut encoder le résultat.
+- L’organisateur peut encoder le score d’un match programmé ou créer directement un match joué entre deux paires d’une même box. Ses résultats sont validés immédiatement et intégrés au classement, avec une trace dans l’historique.
 - Un forfait doit être identifié séparément d'un match joué ; il ne doit pas être transformé en score fictif.
 - L'interface doit rendre explicite la paire à laquelle chaque score est attribué.
 
@@ -146,6 +147,7 @@ Les forfaits sont distingués des matchs effectivement joués. Une victoire par 
 L'organisateur dispose d'un accès privé permettant de :
 
 - Consulter tous les matchs et classements.
+- Programmer un match ou encoder un score pour toute paire, avec validation immédiate des résultats saisis.
 - Consulter et distribuer les liens personnels ; remplacer un lien si nécessaire.
 - Corriger ou valider un résultat.
 - Résoudre une contestation.

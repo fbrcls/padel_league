@@ -1,6 +1,6 @@
 # Padel League La Cure
 
-Application web en français pour programmer les matchs, encoder les jeux, confirmer ou contester les résultats et suivre le classement. Un accès organisateur permet de gérer les résultats et les liens personnels.
+Application web en français pour programmer les matchs, encoder les jeux, confirmer ou contester les résultats et suivre le classement. L’organisateur peut aussi programmer et encoder les résultats de toutes les paires, avec validation immédiate et historique.
 
 ## État de cette version
 
@@ -172,3 +172,5 @@ La limite du runtime est confirmée par [le contrôle officiel de workerd](https
 Avant d’activer cette évolution, exécuter [db/neon/04-organizer-results.sql](db/neon/04-organizer-results.sql) dans Neon SQL Editor, sur la base de production. Copier tout le fichier via Raw et cliquer sur Run. Le résultat doit afficher `submitted_role`.
 
 Le script ajoute uniquement l’identification du rôle ayant encodé un résultat et adapte la contrainte de validation. Il préserve les matchs, scores, liens et sessions existants et peut être relancé. Une installation neuve via les scripts 01 à 03 inclut déjà cette évolution.
+
+Après activation, l’accès organisateur affiche **Encoder un score** pour une rencontre non programmée et **Encoder** sur les matchs à jouer. Il choisit librement les deux paires de la box. Ses scores et forfaits sont validés immédiatement, sans attribuer la saisie à un joueur. Les droits et les 48 heures de confirmation des joueurs sont conservés. Les restrictions de date et de cycle restent applicables.

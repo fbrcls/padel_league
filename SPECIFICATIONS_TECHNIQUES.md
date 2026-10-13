@@ -78,7 +78,7 @@ Identifiants UUID ; horodatages en `timestamptz` ; dates techniques en UTC. Les 
 | `categories` | Codes stables `OPEN` et `WOMEN_MIXED`, libellés français |
 | `boxes` | Cycle, catégorie, numéro ; unicité de cette combinaison |
 | `entries` | Affectation d'une paire à une box ; une seule affectation par paire et cycle |
-| `matches` | Box, deux inscriptions distinctes, date, auteur, état, version, résultat courant, échéance et proposition de correction |
+| `matches` | Box, deux inscriptions distinctes, date, auteur, état, version, résultat courant, rôle de l’encodeur (`submitted_role`), échéance et proposition de correction |
 | `access_links` | Joueur, empreinte du jeton, copie chiffrée pour redistribution, révocation |
 | `sessions` | Empreinte du jeton de session, rôle joueur/organisateur, joueur éventuel, expiration |
 | `audit` | Acteur, action, cible, date, données métier avant/après, sans secret |
@@ -121,7 +121,7 @@ L'appartenance d'un joueur à plusieurs paires est normale. Les noms ne sont pas
 - Les requêtes de modification vérifient l'origine et une protection CSRF. Aucun jeton de session dans `localStorage`.
 - Le serveur vérifie l'appartenance à la box avant une lecture et à une paire participante avant une modification.
 - Seul un joueur de la paire adverse à celle du déclarant peut confirmer ou contester. Le partenaire du déclarant ne peut pas confirmer son résultat.
-- L'organisateur a accès à tous les matchs et peut résoudre, corriger, annuler ou révoquer un lien.
+- L'organisateur a accès à tous les matchs et peut programmer une rencontre, encoder un score, résoudre, corriger, annuler ou révoquer un lien. Une saisie organisateur est directement confirmée ; son acteur est conservé dans l’audit sans attribuer la saisie à un joueur.
 
 ## 6. API et écrans
 
@@ -160,9 +160,9 @@ programmé → en attente → confirmé
 programmé / en attente / contesté / confirmé → annulé par l'organisateur
 ```
 
-L'encodage direct crée le match et sa soumission dans la même transaction. Une correction organisateur peut remplacer un résultat confirmé, avec motif et historique. Pour le lancement, les joueurs ne remplacent pas librement un résultat déjà soumis : ils utilisent la contestation ou demandent une correction.
+L'encodage direct crée le match et sa soumission dans la même transaction. Une soumission organisateur passe directement à l’état confirmé sans échéance ni confirmation adverse ; les soumissions joueurs conservent les 48 heures. Une correction organisateur peut remplacer un résultat confirmé, avec motif et historique. Pour le lancement, les joueurs ne remplacent pas librement un résultat déjà soumis : ils utilisent la contestation ou demandent une correction.
 
-- Inclure un numéro de version dans les mutations ; mettre à jour uniquement si la version attendue correspond.
+- Inclure un numéro de version dans les mutations ; mettre à jour uniquement si la version attendue correspond. Les créations et soumissions sont sérialisées par acteur avec un verrou transactionnel consultatif PostgreSQL, y compris pour l’organisateur.
 - Utiliser une clé d'idempotence par création ou soumission pour qu'une répétition réseau ne crée pas deux matchs ou résultats. Conserver les clés côté serveur avec une contrainte d'unicité.
 - Confirmation, contestation, annulation et tâche planifiée verrouillent le même match ou utilisent une écriture conditionnelle atomique.
 - Recontrôler état, résultat courant et autorisation dans la transaction, puis écrire l'événement d'audit.

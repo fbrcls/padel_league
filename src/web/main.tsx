@@ -250,6 +250,7 @@ function App() {
   const owns = (e: Entry) =>
     e.player1 === me?.player_id || e.player2 === me?.player_id;
   const ownEntries = entries.filter(owns);
+  const selectableEntries = me?.role === "admin" ? entries : ownEntries;
   const entry = (id: string) => entries.find((e) => e.id === id)!;
   const title = (id: string) => {
     const e = entry(id);
@@ -267,7 +268,7 @@ function App() {
     setSelected(null);
     setAction(null);
     setKey(crypto.randomUUID());
-    const own = ownEntries[0];
+    const own = selectableEntries[0];
     setAId(own?.id ?? "");
     setBId(entries.find((e) => e.id !== own?.id && !owns(e))?.id ?? "");
     setDate(localDateValue());
@@ -304,7 +305,9 @@ function App() {
       setForm(null);
       setNotice(
         form === "result"
-          ? "Résultat encodé. Vos adversaires peuvent le confirmer."
+          ? me?.role === "admin"
+            ? "Résultat encodé et validé par l’organisation."
+            : "Résultat encodé. Vos adversaires peuvent le confirmer."
           : "Match programmé. Pensez à réserver sur SportFinder.",
       );
       setPage(1);
@@ -330,7 +333,11 @@ function App() {
       });
       setSelected(null);
       setAction(null);
-      setNotice("Résultat enregistré.");
+      setNotice(
+        me?.role === "admin" && action === "submit"
+          ? "Résultat encodé et validé par l’organisation."
+          : "Résultat enregistré.",
+      );
       await loadBox();
     });
   }
@@ -486,17 +493,17 @@ function App() {
                   ))}
                 </select>
               </label>
-              {me.role === "player" && (
+              {(me.role === "player" || me.role === "admin") && (
                 <div className="actions">
                   <button
                     className="secondary"
-                    disabled={boxLoading || busy || !ownEntries.length}
+                    disabled={boxLoading || busy || !selectableEntries.length}
                     onClick={() => openCreate("schedule")}
                   >
                     + Programmer
                   </button>
                   <button
-                    disabled={boxLoading || busy || !ownEntries.length}
+                    disabled={boxLoading || busy || !selectableEntries.length}
                     onClick={() => openCreate("result")}
                   >
                     Encoder un score
@@ -545,9 +552,11 @@ function App() {
                 <form onSubmit={create}>
                   <div className="form-grid">
                     <label>
-                      Votre paire
+                      {me.role === "admin" ? "Première paire" : "Votre paire"}
                       <select
-                        aria-label="Votre paire"
+                        aria-label={
+                          me.role === "admin" ? "Première paire" : "Votre paire"
+                        }
                         required
                         value={aId}
                         onChange={(e) => {
@@ -555,7 +564,7 @@ function App() {
                           if (bId === e.target.value) setBId("");
                         }}
                       >
-                        {ownEntries.map((e) => (
+                        {selectableEntries.map((e) => (
                           <option key={e.id} value={e.id}>
                             {names(e)}
                           </option>
@@ -600,7 +609,9 @@ function App() {
                   <p className="muted">
                     {form === "schedule"
                       ? "La réservation se fait séparément sur SportFinder."
-                      : "Jeux cumulés après 1 h 30. Vérifiez les paires et le score avant envoi. Confirmation adverse ou automatique après 48 h."}
+                      : me.role === "admin"
+                        ? "Le résultat sera validé immédiatement et comptera au classement."
+                        : "Jeux cumulés après 1 h 30. Vérifiez les paires et le score avant envoi. Confirmation adverse ou automatique après 48 h."}
                   </p>
                   <button disabled={busy || !bId}>
                     {busy
@@ -645,6 +656,12 @@ function App() {
                     value={result}
                     onChange={setResult}
                   />
+                  {action === "submit" && me.role === "admin" && (
+                    <p className="muted">
+                      Le résultat sera validé immédiatement et comptera au
+                      classement.
+                    </p>
+                  )}
                   {action !== "submit" && (
                     <label>
                       {action === "dispute"
@@ -799,15 +816,21 @@ function App() {
                               En attente de résolution par l’organisation.
                             </p>
                           )}
+                          {m.submitted_role === "admin" && (
+                            <p className="muted small">
+                              Encodé et validé par l’organisation.
+                            </p>
+                          )}
                           <div className="card-actions">
-                            {m.status === "scheduled" && canPlay(m) && (
-                              <button
-                                disabled={busy}
-                                onClick={() => openAction(m, "submit")}
-                              >
-                                Encoder
-                              </button>
-                            )}
+                            {m.status === "scheduled" &&
+                              (me.role === "admin" || canPlay(m)) && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => openAction(m, "submit")}
+                                >
+                                  Encoder
+                                </button>
+                              )}
                             {canRespond(m) && (
                               <>
                                 <button

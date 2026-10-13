@@ -243,6 +243,86 @@ describe("Import et accès", () => {
   });
 });
 describe("Scores et intégrité", () => {
+  it("l’organisateur encode un match programmé, valide immédiatement et conserve son identité", async () => {
+    const player = await session(author),
+      admin = await session(null);
+    const planned = (await create(player)).data;
+    const key = crypto.randomUUID(),
+      payload = {
+        version: planned.version,
+        key,
+        result: { kind: "played", games_a: 18, games_b: 9 },
+      };
+    const encoded = await request(
+      "/matches/" + planned.id + "/result",
+      admin,
+      payload,
+    );
+    expect(encoded.status).toBe(200);
+    expect(encoded.data).toMatchObject({
+      status: "confirmed",
+      submitted_role: "admin",
+      submitted_by: null,
+      submitted_entry: null,
+      deadline: null,
+    });
+    expect(encoded.data.confirmed_at).not.toBeNull();
+    const repeated = await request(
+      "/matches/" + planned.id + "/result",
+      admin,
+      payload,
+    );
+    expect(repeated.data.version).toBe(encoded.data.version);
+    expect(
+      (
+        await request("/admin/matches/" + planned.id + "/audit", admin)
+      ).data.events.filter((e: any) => e.action === "submit"),
+    ).toMatchObject([{ actor: "admin" }]);
+    const ranking = (await request("/boxes/" + a.box_id + "/standings", player))
+      .data.standings;
+    expect(ranking.find((r: any) => r.id === a.id).points).toBe(4);
+    expect(ranking.find((r: any) => r.id === b.id).points).toBe(1);
+    expect(await runDue(db)).toBe(0);
+    expect(
+      (
+        await request("/matches/" + planned.id + "/result", admin, {
+          ...payload,
+          key: crypto.randomUUID(),
+          version: encoded.data.version,
+        })
+      ).status,
+    ).toBe(409);
+  });
+  it("l’organisateur crée un résultat direct et un forfait, sans doublon en cas d’envoi simultané", async () => {
+    const admin = await session(null),
+      key = crypto.randomUUID();
+    const [first, retry] = await Promise.all([
+      create(admin, { kind: "played", games_a: 11, games_b: 11 }, key),
+      create(admin, { kind: "played", games_a: 11, games_b: 11 }, key),
+    ]);
+    expect(first.status).toBe(201);
+    expect(retry.status).toBe(201);
+    expect(first.data.id).toBe(retry.data.id);
+    expect(first.data.author).toBeNull();
+    expect(first.data.submitted_role).toBe("admin");
+    const forfeited = await create(admin, {
+      kind: "forfeit",
+      forfeiting_entry: a.id,
+    });
+    expect(forfeited.data.status).toBe("confirmed");
+    const rank = (await request("/boxes/" + a.box_id + "/standings", admin))
+      .data.standings;
+    expect(rank.find((r: any) => r.id === a.id)).toMatchObject({
+      points: 2,
+      gamesFor: 11,
+    });
+    expect(rank.find((r: any) => r.id === b.id)).toMatchObject({
+      points: 5,
+      gamesFor: 11,
+    });
+    expect(await db.query("SELECT * FROM matches")).toHaveLength(2);
+  });
+
   it("18–9 ne compte qu’après confirmation adverse, le partenaire ne peut pas confirmer", async () => {
     const player = await session(author),
       other = await session(opponent),
