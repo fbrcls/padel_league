@@ -166,3 +166,9 @@ Retélécharger `tools/generate-secrets.html`, saisir le même mot de passe et l
 La connexion récupère uniquement le sel public et les 600 000 itérations, calcule PBKDF2 dans le navigateur, puis transmet la valeur dérivée par HTTPS. Cette valeur est un credential sensible équivalent au mot de passe ; elle n’est ni sauvegardée ni journalisée. Le secret serveur contient **SHA-256 de cette valeur**, pas la valeur elle-même : connaître le vérificateur stocké ne permet pas de se connecter directement. Les essais restent limités et les sessions organisateur restent révoquées lors d’un changement de secret. Aucun ancien vérificateur PBKDF2 n’est accepté comme credential en production ; seule la base locale bénéficie d’une compatibilité pour ses accès de démonstration.
 
 La limite du runtime est confirmée par [le contrôle officiel de workerd](https://github.com/cloudflare/workerd/blob/main/src/workerd/api/crypto/impl.c++), qui produit `NotSupportedError` lorsque le plafond d’itérations est dépassé. Le runtime local ne reproduisait pas ce plafond de production. Les tests simulent maintenant un refus PBKDF2 serveur et vérifient que la connexion utilise uniquement le vérificateur léger.
+
+## Préparer l’encodage organisateur sur une base existante
+
+Avant d’activer cette évolution, exécuter [db/neon/04-organizer-results.sql](db/neon/04-organizer-results.sql) dans Neon SQL Editor, sur la base de production. Copier tout le fichier via Raw et cliquer sur Run. Le résultat doit afficher `submitted_role`.
+
+Le script ajoute uniquement l’identification du rôle ayant encodé un résultat et adapte la contrainte de validation. Il préserve les matchs, scores, liens et sessions existants et peut être relancé. Une installation neuve via les scripts 01 à 03 inclut déjà cette évolution.

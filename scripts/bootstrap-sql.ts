@@ -118,7 +118,26 @@ if (process.argv[1]?.endsWith("bootstrap-sql.ts")) {
   await mkdir("db/neon", { recursive: true });
   for (const [name, sql] of Object.entries(await bootstrapParts()))
     await writeFile("db/neon/" + name, sql);
+  const name = "007_organizer_results.sql";
+  const sql = await readFile("db/migrations/" + name, "utf8");
+  await writeFile(
+    "db/neon/04-organizer-results.sql",
+    `-- Évolution : encodage organisateur. Répétable, préserve les matchs existants.
+BEGIN;
+DO $organizer_migration$
+BEGIN
+ IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE name='${name}') THEN
+${sql}
+ INSERT INTO schema_migrations(name) VALUES('${name}');
+ END IF;
+END;
+$organizer_migration$;
+COMMIT;
+SELECT column_name FROM information_schema.columns WHERE table_name='matches' AND column_name='submitted_role';
+-- FIN DU FICHIER
+`,
+  );
   console.log(
-    "db/bootstrap.sql et les trois scripts courts db/neon générés (sans secrets).",
+    "Scripts de préparation et migration Neon générés (sans secrets).",
   );
 }
