@@ -6,7 +6,9 @@ Application web en français pour programmer les matchs, encoder les jeux, confi
 
 - React / TypeScript / Vite ; API Hono sur Cloudflare Workers.
 - PostgreSQL Neon en production ; PostgreSQL embarqué PGlite en local, sans compte externe.
-- Composition initiale : 66 paires, 11 box ; identités fusionnées après confirmation (voir `db/seed/README.md`).
+- Composition initiale : 67 paires, 11 box ; identités fusionnées après confirmation (voir `db/seed/README.md`).
+
+Pour une base déjà initialisée avant l’ajout de Michael Bertrand / Charley Severin, exécuter [db/neon/06-ajouter-paire-open-1.sql](db/neon/06-ajouter-paire-open-1.sql) dans Neon SQL Editor avec **Run**. Le script ajoute leur paire dans la box 1 Open/Messieurs et conserve leurs accès et inscriptions en mixte. Il peut être rejoué sans créer de doublon.
 - Cycle du 12 octobre au 29 novembre 2026 ; saisie jusqu'au 1er décembre à 23 h 59 belge. Les confirmations et contestations continuent ensuite.
 - Tests automatisés métier/API et parcours navigateur fournis.
 - Aucun déploiement public effectué. Neon, sa région UE et les conditions gratuites sans carte doivent être vérifiés avec les comptes de l'organisateur.
@@ -60,7 +62,7 @@ Dans le projet Neon, ouvrir **SQL Editor** et sélectionner la base `neondb`. Si
 
 Pour chaque fichier, ouvrir **Raw**, copier tout le contenu, remplacer entièrement le texte de l’éditeur et cliquer sur **Run**. Vérifier que le commentaire `FIN DU FICHIER` est présent à la fin. Ne pas réutiliser une entrée d’historique marquée `QUERY TRUNCATED`.
 
-Chaque fichier fait moins de 10 Ko, est transactionnel et répétable sans effacer les matchs existants. Le résultat du troisième doit indiquer **66 paires, 11 box et 66 inscriptions**. Le fichier complet [db/bootstrap.sql](db/bootstrap.sql) reste disponible pour les outils sans troncature de l’historique.
+Chaque fichier fait moins de 10 Ko, est transactionnel et répétable sans effacer les matchs existants. Le résultat du troisième doit indiquer **67 paires, 11 box et 67 inscriptions**. Le fichier complet [db/bootstrap.sql](db/bootstrap.sql) reste disponible pour les outils sans troncature de l’historique.
 
 `npm run db:bootstrap-sql` régénère tous ces fichiers depuis les migrations et les données canoniques. Les scripts courts ont été testés sur PostgreSQL embarqué et comparés au script complet, y compris les identités, les paires et les dates du cycle. La connexion privée est ensuite enregistrée directement comme secret `DATABASE_URL` dans Cloudflare.
 

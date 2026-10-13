@@ -5,7 +5,7 @@ Statut : architecture retenue pour la première version, à valider par un dépl
 ## 1. Objectifs et contraintes
 
 - Application web responsive en français, utilisable sur téléphone et ordinateur.
-- Première compétition : 66 paires dans 11 box, du 12 octobre au 29 novembre 2026, heure belge.
+- Première compétition : 67 paires dans 11 box, du 12 octobre au 29 novembre 2026, heure belge.
 - Hébergement, adresse HTTPS et stockage sur des offres gratuites **sans carte bancaire**.
 - Pas de dépendance à un essai temporaire payant ; pas d'activation automatique d'une offre payante.
 - Base de données en Union européenne si cette région est accessible sur l'offre gratuite.

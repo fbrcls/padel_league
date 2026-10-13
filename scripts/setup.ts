@@ -76,6 +76,10 @@ export async function seed(db: Db) {
           );
         }
       }
+    // Identifiant historique conservé : les accès et inscriptions restent valides.
+    await tx.query(
+      "UPDATE players SET name='Charley Severin' WHERE id='charley'",
+    );
   });
 }
 export async function localConfig() {

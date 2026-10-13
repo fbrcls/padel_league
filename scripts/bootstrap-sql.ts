@@ -74,6 +74,7 @@ export async function bootstrapParts() {
 BEGIN;
 ${cycle}
 INSERT INTO players(id,name) SELECT r->>0,r->>1 FROM jsonb_array_elements(${quote(JSON.stringify([...players]))}::jsonb) AS r ON CONFLICT(id) DO NOTHING;
+UPDATE players SET name='Charley Severin' WHERE id='charley';
 COMMIT;
 SELECT count(*) AS joueurs FROM players;
 -- FIN DU FICHIER 2

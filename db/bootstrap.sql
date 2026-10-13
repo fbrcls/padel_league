@@ -186,6 +186,14 @@ INSERT INTO pairs(id,player1,player2) VALUES('malcolm-gossart__maxence-gysemberg
 
 INSERT INTO entries(id,pair_id,box_id) VALUES('2026-1-OPEN-1__malcolm-gossart__maxence-gysemberg','malcolm-gossart__maxence-gysemberg','2026-1-OPEN-1') ON CONFLICT(id) DO NOTHING;
 
+INSERT INTO players(id,name) VALUES('michael-bertrand','Michael Bertrand') ON CONFLICT(id) DO NOTHING;
+
+INSERT INTO players(id,name) VALUES('charley','Charley') ON CONFLICT(id) DO NOTHING;
+
+INSERT INTO pairs(id,player1,player2) VALUES('charley__michael-bertrand','michael-bertrand','charley') ON CONFLICT(id) DO NOTHING;
+
+INSERT INTO entries(id,pair_id,box_id) VALUES('2026-1-OPEN-1__charley__michael-bertrand','charley__michael-bertrand','2026-1-OPEN-1') ON CONFLICT(id) DO NOTHING;
+
 INSERT INTO boxes(id,cycle_id,category,number) VALUES('2026-1-OPEN-2','2026-1','OPEN',2) ON CONFLICT(id) DO NOTHING;
 
 INSERT INTO players(id,name) VALUES('loic-houart','Loic Houart') ON CONFLICT(id) DO NOTHING;
@@ -685,6 +693,8 @@ INSERT INTO players(id,name) VALUES('adele-dengis','Adèle Dengis') ON CONFLICT(
 INSERT INTO pairs(id,player1,player2) VALUES('adele-dengis__celine-jammart','celine-jammart','adele-dengis') ON CONFLICT(id) DO NOTHING;
 
 INSERT INTO entries(id,pair_id,box_id) VALUES('2026-1-WOMEN_MIXED-6__adele-dengis__celine-jammart','adele-dengis__celine-jammart','2026-1-WOMEN_MIXED-6') ON CONFLICT(id) DO NOTHING;
+
+UPDATE players SET name='Charley Severin' WHERE id='charley';
 
 COMMIT;
 

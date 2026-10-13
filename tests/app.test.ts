@@ -144,13 +144,13 @@ describe("Import et accès", () => {
     }
   });
 
-  it("importe exactement 66 paires dans 11 box, sans doublons lors de la répétition", async () => {
+  it("importe exactement 67 paires dans 11 box, sans doublons lors de la répétition", async () => {
     const before = await db.query("SELECT count(*)::int AS n FROM players");
     await seed(db);
     await migrate(db);
     expect(
       (await db.query("SELECT count(*)::int AS n FROM entries"))[0].n,
-    ).toBe(66);
+    ).toBe(67);
     expect((await db.query("SELECT count(*)::int AS n FROM boxes"))[0].n).toBe(
       11,
     );

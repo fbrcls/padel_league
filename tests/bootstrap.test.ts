@@ -4,6 +4,48 @@ import { seed } from "../scripts/setup";
 import { it, expect } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { bootstrapSql, bootstrapParts } from "../scripts/bootstrap-sql";
+it("l’ajout Open conserve les identités, accès et inscriptions mixtes et ne se duplique pas", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(await bootstrapSql());
+    await pg.exec(
+      "DELETE FROM entries WHERE pair_id='charley__michael-bertrand'; DELETE FROM pairs WHERE id='charley__michael-bertrand'; UPDATE players SET name='Charley' WHERE id='charley';",
+    );
+    await pg.exec(
+      "INSERT INTO access_links VALUES ('charley','existing-hash','existing-ciphertext'),('michael-bertrand','michael-hash','michael-ciphertext');",
+    );
+    const mixed =
+      "SELECT e.* FROM entries e JOIN pairs p ON p.id=e.pair_id JOIN boxes b ON b.id=e.box_id WHERE b.category='WOMEN_MIXED' AND (p.player1 IN ('charley','michael-bertrand') OR p.player2 IN ('charley','michael-bertrand')) ORDER BY e.id";
+    const before = (await pg.query(mixed)).rows;
+    const players = (await pg.query("SELECT count(*)::int AS n FROM players"))
+      .rows;
+    const links = (
+      await pg.query("SELECT * FROM access_links ORDER BY player_id")
+    ).rows;
+    const sql = await readFile("db/neon/06-ajouter-paire-open-1.sql", "utf8");
+    await pg.exec(sql);
+    await pg.exec(sql);
+    expect((await pg.query(mixed)).rows).toEqual(before);
+    expect(
+      (await pg.query("SELECT count(*)::int AS n FROM players")).rows,
+    ).toEqual(players);
+    expect(
+      (await pg.query("SELECT * FROM access_links ORDER BY player_id")).rows,
+    ).toEqual(links);
+    expect(
+      (await pg.query("SELECT name FROM players WHERE id='charley'")).rows,
+    ).toEqual([{ name: "Charley Severin" }]);
+    expect(
+      (
+        await pg.query(
+          "SELECT count(*)::int AS n FROM entries WHERE box_id='2026-1-OPEN-1'",
+        )
+      ).rows,
+    ).toEqual([{ n: 7 }]);
+  } finally {
+    await pg.close();
+  }
+}, 15000);
 it("le script Neon initialise la compétition et préserve les données lors d’une répétition", async () => {
   const pg = new PGlite();
   try {
@@ -12,7 +54,7 @@ it("le script Neon initialise la compétition et préserve les données lors d�
     expect(
       (await pg.query<{ n: number }>("SELECT count(*)::int AS n FROM entries"))
         .rows[0].n,
-    ).toBe(66);
+    ).toBe(67);
     expect(
       (await pg.query<{ n: number }>("SELECT count(*)::int AS n FROM boxes"))
         .rows[0].n,
@@ -35,7 +77,7 @@ it("le script Neon initialise la compétition et préserve les données lors d�
     expect(
       (await pg.query<{ n: number }>("SELECT count(*)::int AS n FROM entries"))
         .rows[0].n,
-    ).toBe(66);
+    ).toBe(67);
     expect(
       (
         await pg.query<{ n: number }>(
@@ -81,7 +123,7 @@ it("les trois scripts courts sont complets, compatibles et répétables", async 
     expect(
       (await pg.query<{ n: number }>("SELECT count(*)::int AS n FROM entries"))
         .rows[0].n,
-    ).toBe(66);
+    ).toBe(67);
   } finally {
     await pg.close();
     await reference.close();

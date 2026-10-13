@@ -12,7 +12,7 @@ La priorité est une première version rapidement opérationnelle. L'application
 
 - Premier cycle : du **12 octobre au 29 novembre 2026 inclus**, heure belge (`Europe/Brussels`).
 - Deux tableaux : **Open/Messieurs** et **Dames/Mixtes**.
-- Composition initiale : **66 paires dans 11 box** — 31 paires dans les 5 box Open/Messieurs, 35 paires dans les 6 box Dames/Mixtes.
+- Composition initiale : **67 paires dans 11 box** — 32 paires dans les 5 box Open/Messieurs, 35 paires dans les 6 box Dames/Mixtes.
 - La box 1 correspond au niveau le plus élevé.
 - Les paires sont fixes pendant le cycle. Le règlement autorise un remplacement pour blessure par un joueur de classement équivalent, avec accord préalable de l'organisation ; sa gestion reste manuelle pour cette version.
 - Chaque paire peut jouer un nombre illimité de matchs contre les autres paires de sa box.
