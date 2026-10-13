@@ -52,9 +52,17 @@ Vérifier l'absence de carte obligatoire, les quotas gratuits, la région europ�
 
 ### Préparer Neon sans partager de connexion
 
-Dans le projet Neon, ouvrir **SQL Editor**, sélectionner la base `neondb`, copier le contenu de [db/bootstrap.sql](db/bootstrap.sql) et exécuter le script complet. Le résultat final doit indiquer **66 paires, 11 box et 66 inscriptions**. Le script crée les tables et importe les participants sans générer de secret ni de lien personnel ; il peut être relancé sans effacer les matchs existants.
+Dans le projet Neon, ouvrir **SQL Editor** et sélectionner la base `neondb`. Si l’éditeur affiche « Failed transaction », cliquer d’abord sur **ROLLBACK**. Exécuter ensuite séparément, dans cet ordre :
 
-`npm run db:bootstrap-sql` régénère ce fichier depuis les migrations et les données canoniques. Le script généré est testé sur PostgreSQL embarqué ; son exécution dans Neon doit être confirmée dans l'éditeur SQL. La connexion privée peut ensuite être enregistrée directement comme secret `DATABASE_URL` dans Cloudflare, sans la transmettre dans une conversation.
+1. [db/neon/01-schema.sql](db/neon/01-schema.sql) : tables et migrations.
+2. [db/neon/02-joueurs.sql](db/neon/02-joueurs.sql) : cycle et joueurs.
+3. [db/neon/03-paires.sql](db/neon/03-paires.sql) : box, paires et inscriptions.
+
+Pour chaque fichier, ouvrir **Raw**, copier tout le contenu, remplacer entièrement le texte de l’éditeur et cliquer sur **Run**. Vérifier que le commentaire `FIN DU FICHIER` est présent à la fin. Ne pas réutiliser une entrée d’historique marquée `QUERY TRUNCATED`.
+
+Chaque fichier fait moins de 10 Ko, est transactionnel et répétable sans effacer les matchs existants. Le résultat du troisième doit indiquer **66 paires, 11 box et 66 inscriptions**. Le fichier complet [db/bootstrap.sql](db/bootstrap.sql) reste disponible pour les outils sans troncature de l’historique.
+
+`npm run db:bootstrap-sql` régénère tous ces fichiers depuis les migrations et les données canoniques. Les scripts courts ont été testés sur PostgreSQL embarqué et comparés au script complet, y compris les identités, les paires et les dates du cycle. La connexion privée est ensuite enregistrée directement comme secret `DATABASE_URL` dans Cloudflare.
 
 ### Créer et préparer la base
 
@@ -69,7 +77,7 @@ Les variantes de noms confirmées sont traitées par `aliases.json` et une migra
 
 **Sans terminal :** télécharger [tools/generate-secrets.html](tools/generate-secrets.html), puis ouvrir le fichier sur son ordinateur dans un navigateur récent. Choisir et confirmer un mot de passe organisateur d’au moins 16 caractères ; l’outil génère `ADMIN_PASSWORD_HASH` et `LINK_ENCRYPTION_KEY` sans requête réseau. Enregistrer ces deux valeurs comme secrets dans **Cloudflare → Worker → Settings → Variables and Secrets**. Enregistrer également la chaîne de connexion Neon comme secret `DATABASE_URL`. Ne jamais transmettre ces valeurs dans une conversation. L’outil n’est pas inclus dans les fichiers publics de l’application et ne sauvegarde pas automatiquement les valeurs.
 
-L’adresse de production configurée est `https://padel-league-la-cure.fbrcls.workers.dev`. Après l’ajout des trois secrets, enregistrer/déployer les changements dans Cloudflare, puis ouvrir `/organisateur` avec le mot de passe choisi. La base doit avoir été préparée avec `db/bootstrap.sql`.
+L’adresse de production configurée est `https://padel-league-la-cure.fbrcls.workers.dev`. Après l’ajout des trois secrets, enregistrer/déployer les changements dans Cloudflare, puis ouvrir `/organisateur` avec le mot de passe choisi. La base doit avoir été préparée avec les trois scripts de `db/neon`.
 
 **Avec terminal :**
 
@@ -135,7 +143,7 @@ Les montées/descentes, coordonnées, notifications et une interface complète d
 Dans Cloudflare, ouvrir **Observability → Logs** sur le Worker et reproduire le problème. Les erreurs API affichent une référence dans l’application et journalisent un objet `API error` avec la même référence, une catégorie et, pour PostgreSQL, le code `sqlstate`. Le message brut, la pile, les paramètres SQL et les secrets ne sont jamais journalisés par ce diagnostic.
 
 - `configuration` : vérifier les noms de bindings indiqués dans les paramètres du Worker.
-- `database_schema` / `42P01` : table absente ; exécuter `db/bootstrap.sql` sur la base et la branche utilisées par `DATABASE_URL`.
+- `database_schema` / `42P01` : table absente ; exécuter les trois scripts de `db/neon` sur la base et la branche utilisées par `DATABASE_URL`.
 - `database_authentication` / `28P01` : vérifier la connexion dans Neon → Connect et mettre à jour le secret directement dans Cloudflare.
 - `database_permissions` / `42501` : vérifier les droits du rôle PostgreSQL.
 - `database_connection` : vérifier la disponibilité et la connectivité Neon.

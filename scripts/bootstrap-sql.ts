@@ -1,6 +1,6 @@
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile, mkdir } from "node:fs/promises";
 import type { Db } from "../src/server/db";
-import { seed } from "./setup";
+import { seed, playerId } from "./setup";
 const quote = (value: unknown): string => {
   if (value === null) return "NULL";
   if (typeof value === "number") {
@@ -45,7 +45,80 @@ export async function bootstrapSql() {
   );
   return chunks.join("\n\n") + "\n";
 }
+export async function bootstrapParts() {
+  const full = await bootstrapSql();
+  const firstSeed = full.indexOf("INSERT INTO cycles(");
+  if (firstSeed < 0) throw new Error("Début de l’import introuvable");
+  const schema =
+    full.slice(0, firstSeed) +
+    "COMMIT;\nSELECT count(*) AS migrations_appliquees FROM schema_migrations;\n-- FIN DU FICHIER 1\n";
+  const roster = JSON.parse(
+    await readFile("db/seed/roster.json", "utf8"),
+  ) as Record<string, string[][][]>;
+  const aliases = JSON.parse(
+    await readFile("db/seed/aliases.json", "utf8"),
+  ) as Record<string, string>;
+  const players = new Map<string, string>();
+  const pairs: [string, number, string, string][] = [];
+  for (const [category, boxes] of Object.entries(roster))
+    for (const [index, box] of boxes.entries())
+      for (const [a, b] of box) {
+        for (const name of [a, b]) {
+          const canonical = aliases[name] ?? name;
+          players.set(playerId(canonical), canonical);
+        }
+        pairs.push([category, index + 1, playerId(a), playerId(b)]);
+      }
+  const cycle = full.slice(firstSeed, full.indexOf(";", firstSeed) + 1);
+  const playerSql = `-- Fichier 2/3 : cycle et joueurs. Répétable, sans secrets.
+BEGIN;
+${cycle}
+INSERT INTO players(id,name) SELECT r->>0,r->>1 FROM jsonb_array_elements(${quote(JSON.stringify([...players]))}::jsonb) AS r ON CONFLICT(id) DO NOTHING;
+COMMIT;
+SELECT count(*) AS joueurs FROM players;
+-- FIN DU FICHIER 2
+`;
+  const aliasIds = Object.fromEntries(
+    Object.entries(aliases).map(([from, to]) => [playerId(from), playerId(to)]),
+  );
+  const pairSql = `-- Fichier 3/3 : box, paires et inscriptions. Répétable, sans secrets.
+BEGIN;
+DO $padel_pairs$
+DECLARE
+ v_row jsonb; v_category text; v_number integer; v_source_a text; v_source_b text; v_player_a text; v_player_b text; v_pair text; v_box text;
+ v_aliases jsonb := ${quote(JSON.stringify(aliasIds))}::jsonb;
+BEGIN
+ FOR v_row IN SELECT value FROM jsonb_array_elements(${quote(JSON.stringify(pairs))}::jsonb) LOOP
+  v_category := v_row->>0; v_number := (v_row->>1)::integer; v_source_a := v_row->>2; v_source_b := v_row->>3;
+  v_player_a := COALESCE(v_aliases->>v_source_a,v_source_a); v_player_b := COALESCE(v_aliases->>v_source_b,v_source_b);
+  v_pair := CASE WHEN v_source_a COLLATE "C" < v_source_b COLLATE "C" THEN v_source_a||'__'||v_source_b ELSE v_source_b||'__'||v_source_a END;
+  v_box := '2026-1-'||v_category||'-'||v_number;
+  INSERT INTO boxes(id,cycle_id,category,number) VALUES(v_box,'2026-1',v_category,v_number) ON CONFLICT(id) DO NOTHING;
+  INSERT INTO pairs(id,player1,player2) VALUES(v_pair,v_player_a,v_player_b) ON CONFLICT(id) DO NOTHING;
+  INSERT INTO entries(id,pair_id,box_id) VALUES(v_box||'__'||v_pair,v_pair,v_box) ON CONFLICT(id) DO NOTHING;
+ END LOOP;
+END;
+$padel_pairs$;
+COMMIT;
+SELECT (SELECT count(*) FROM players) AS joueurs, (SELECT count(*) FROM pairs) AS paires, (SELECT count(*) FROM boxes) AS box, (SELECT count(*) FROM entries) AS inscriptions;
+-- FIN DU FICHIER 3
+`;
+  const parts = {
+    "01-schema.sql": schema,
+    "02-joueurs.sql": playerSql,
+    "03-paires.sql": pairSql,
+  };
+  for (const [name, sql] of Object.entries(parts))
+    if (Buffer.byteLength(sql, "utf8") >= 10000)
+      throw new Error("Script trop long : " + name);
+  return parts;
+}
 if (process.argv[1]?.endsWith("bootstrap-sql.ts")) {
   await writeFile("db/bootstrap.sql", await bootstrapSql());
-  console.log("db/bootstrap.sql généré (sans secrets).");
+  await mkdir("db/neon", { recursive: true });
+  for (const [name, sql] of Object.entries(await bootstrapParts()))
+    await writeFile("db/neon/" + name, sql);
+  console.log(
+    "db/bootstrap.sql et les trois scripts courts db/neon générés (sans secrets).",
+  );
 }
