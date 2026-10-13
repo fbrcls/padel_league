@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { api, names, formatDate, localDateValue, belgianInstant } from "./api";
 import type { Entry, Match, Result } from "../shared/contracts";
 import "./style.css";
+import { deriveCredential, PASSWORD_ITERATIONS } from "../shared/password";
 type Me = {
   role: "player" | "admin";
   player_id: string | null;
@@ -422,7 +423,18 @@ function App() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   perform(async () => {
-                    await api("/auth/admin", { password });
+                    const parameters = await api("/auth/admin/parameters");
+                    if (parameters.upgradeRequired)
+                      throw new Error(
+                        "Mettez à jour ADMIN_PASSWORD_HASH avec le nouvel outil de préparation, en conservant votre mot de passe et la clé des liens.",
+                      );
+                    if (parameters.iterations !== PASSWORD_ITERATIONS)
+                      throw new Error("Paramètres de connexion invalides.");
+                    const proof = await deriveCredential(
+                      password,
+                      parameters.salt,
+                    );
+                    await api("/auth/admin", { proof });
                     setPassword("");
                     await identity();
                   });

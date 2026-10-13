@@ -107,8 +107,10 @@ L'appartenance d'un joueur à plusieurs paires est normale. Les noms ne sont pas
 ### Organisateur
 
 - Écran de connexion par mot de passe, sans service d'e-mail.
-- Conserver une empreinte salée obtenue avec une fonction de dérivation de mot de passe reconnue ; jamais le mot de passe en clair.
-- Choisir une implémentation compatible avec Workers et un coût conforme aux recommandations de sécurité en vigueur. Mesurer son coût CPU sur l'offre gratuite avant de valider cette architecture ; ne pas diminuer silencieusement la protection pour respecter un quota.
+- Le navigateur calcule PBKDF2-HMAC-SHA-256 avec un sel aléatoire de 16 octets et 600 000 itérations. Le sel et le coût sont publics ; le mot de passe brut reste dans le navigateur.
+- Il transmet la valeur dérivée via HTTPS ; cette valeur doit être traitée comme un credential, sans sauvegarde ni journalisation.
+- Le Worker conserve uniquement un vérificateur SHA-256 de la valeur dérivée, sous la forme `pbkdf2-client:600000:sel:verificateur`. Il vérifie ce digest sans effectuer le calcul PBKDF2 coûteux, refusé par les limites Cloudflare en production.
+- Un ancien secret `pbkdf2:600000:…` nécessite une mise à jour avec le même mot de passe. Les anciennes valeurs dérivées ne sont jamais acceptées directement en production. Une compatibilité limitée au mode local conserve les accès de démonstration.
 - Limiter les tentatives de connexion côté serveur, avec un état partagé persistant et un délai de blocage temporaire ; ne pas compter sur une mémoire locale du Worker.
 - Le changement du mot de passe révoque les sessions organisateur ; la récupération se fait via les paramètres sécurisés de l'hébergement pour cette version.
 

@@ -27,6 +27,7 @@ export default {
       close = connection.close;
       return await makeApp(connection.db, {
         ...env,
+        local: false,
         scheduleDeadline: (date) =>
           scheduleDeadline(env.CONFIRMATION_QUEUE, date),
       }).fetch(request);

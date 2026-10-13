@@ -1,3 +1,4 @@
+import { parsePasswordHash } from "../shared/password";
 // Logs contain only fixed categories, SQLSTATE codes and known application names.
 // Never log the original message, stack, connection URL, parameters or bindings.
 const tables = new Set([
@@ -57,16 +58,8 @@ export function validateBindings(env: Record<string, unknown>) {
   } catch {
     throw new ConfigurationError(["DATABASE_URL"], "invalid");
   }
-  const hash = (env.ADMIN_PASSWORD_HASH as string).split(":");
   try {
-    if (
-      hash.length !== 4 ||
-      hash[0] !== "pbkdf2" ||
-      hash[1] !== "600000" ||
-      atob(hash[2]).length !== 16 ||
-      atob(hash[3]).length !== 32
-    )
-      throw Error();
+    parsePasswordHash(env.ADMIN_PASSWORD_HASH as string);
   } catch {
     throw new ConfigurationError(["ADMIN_PASSWORD_HASH"], "invalid");
   }

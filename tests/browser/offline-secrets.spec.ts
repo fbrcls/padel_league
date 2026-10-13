@@ -21,6 +21,11 @@ test("l’outil local produit des secrets compatibles sans requête réseau", as
     else await route.abort();
   });
   await page.goto("http://localhost:5173/__offline-secrets-test__");
+  await page
+    .getByLabel(
+      "Générer aussi une clé de liens (première installation uniquement)",
+    )
+    .check();
   const password = "Password-fixture-for-offline-test";
   await page
     .getByLabel("Votre mot de passe organisateur", { exact: true })
@@ -28,12 +33,16 @@ test("l’outil local produit des secrets compatibles sans requête réseau", as
   await page
     .getByLabel("Confirmer le mot de passe", { exact: true })
     .fill(password + "different");
-  await page.getByRole("button", { name: "Générer les deux valeurs" }).click();
+  await page
+    .getByRole("button", { name: "Générer le secret organisateur" })
+    .click();
   await expect(page.getByRole("status")).toContainText("ne correspondent pas");
   await page
     .getByLabel("Confirmer le mot de passe", { exact: true })
     .fill(password);
-  await page.getByRole("button", { name: "Générer les deux valeurs" }).click();
+  await page
+    .getByRole("button", { name: "Générer le secret organisateur" })
+    .click();
   await expect(page.getByRole("status")).toContainText(
     "Valeurs générées localement",
   );
@@ -53,4 +62,40 @@ test("l’outil local produit des secrets compatibles sans requête réseau", as
     page.getByLabel("Votre mot de passe organisateur", { exact: true }),
   ).toHaveValue("");
   expect(remoteRequests).toEqual([]);
+});
+
+test("la mise à jour organisateur ne génère pas de nouvelle clé de liens par défaut", async ({
+  page,
+}) => {
+  const html = await readFile("tools/generate-secrets.html", "utf8");
+  await page.route("**/*", (route) =>
+    route.fulfill({ contentType: "text/html", body: html }),
+  );
+  await page.goto("http://localhost:5173/__offline-secrets-test__");
+  await expect(
+    page.getByLabel(
+      "Générer aussi une clé de liens (première installation uniquement)",
+    ),
+  ).not.toBeChecked();
+  await page
+    .getByLabel("Votre mot de passe organisateur", { exact: true })
+    .fill("Password-fixture-for-update");
+  await page
+    .getByLabel("Confirmer le mot de passe", { exact: true })
+    .fill("Password-fixture-for-update");
+  await page
+    .getByRole("button", { name: "Générer le secret organisateur" })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Valeurs générées localement",
+  );
+  expect(
+    await page.getByLabel("ADMIN_PASSWORD_HASH", { exact: true }).inputValue(),
+  ).toMatch(/^pbkdf2-client:600000:/);
+  await expect(
+    page.getByLabel("LINK_ENCRYPTION_KEY", { exact: true }),
+  ).toBeHidden();
+  await expect(
+    page.getByLabel("LINK_ENCRYPTION_KEY", { exact: true }),
+  ).toHaveValue("");
 });

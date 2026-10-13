@@ -18,6 +18,7 @@ import {
   type Result,
 } from "../shared/contracts";
 import { standings } from "./standings";
+import { parsePasswordHash, verifyCredential } from "../shared/password";
 export type Config = {
   APP_ORIGIN: string;
   ADMIN_PASSWORD_HASH: string;
@@ -216,7 +217,11 @@ export function makeApp(db: Db, config: Config) {
       const raw = await c.req.text();
       if (raw.length > 16000) fail(422, "Requête trop volumineuse.");
     }
-    if (c.req.path === "/api/health") return next();
+    if (
+      c.req.path === "/api/health" ||
+      c.req.path === "/api/auth/admin/parameters"
+    )
+      return next();
     if (["/api/auth/player", "/api/auth/admin"].includes(c.req.path)) {
       await rateLimit(
         config.local ? "local" : c.req.header("cf-connecting-ip") || "unknown",
@@ -262,12 +267,40 @@ export function makeApp(db: Db, config: Config) {
     await newSession(c, { role: "player", player_id: link.player_id });
     return c.json({ ok: true });
   });
+  app.get("/api/auth/admin/parameters", (c) => {
+    const parsed = parsePasswordHash(config.ADMIN_PASSWORD_HASH);
+    return c.json({
+      salt: parsed.salt,
+      iterations: parsed.iterations,
+      upgradeRequired: parsed.format === "pbkdf2" && !config.local,
+    });
+  });
   app.post("/api/auth/admin", async (c) => {
-    const { password } = z
-      .object({ password: z.string().min(1).max(256) })
+    const input = z
+      .object({
+        proof: z.string().max(100).optional(),
+        password: z.string().min(1).max(256).optional(),
+      })
       .parse(await c.req.json());
-    if (!(await verifyPassword(password, config.ADMIN_PASSWORD_HASH)))
-      fail(401, "Mot de passe incorrect.");
+    const parsed = parsePasswordHash(config.ADMIN_PASSWORD_HASH);
+    if (parsed.format === "pbkdf2" && !config.local)
+      throw new HTTPException(503, {
+        message:
+          "Le secret organisateur doit être mis à jour avec le nouvel outil de préparation.",
+      });
+    if (!config.local && input.password !== undefined)
+      fail(422, "Actualisez la page avant de vous connecter.");
+    let valid = false;
+    if (input.proof)
+      valid = await verifyCredential(
+        input.proof,
+        config.ADMIN_PASSWORD_HASH,
+        !!config.local,
+      );
+    else if (config.local && input.password)
+      valid = await verifyPassword(input.password, config.ADMIN_PASSWORD_HASH);
+    else fail(422, "Actualisez la page avant de vous connecter.");
+    if (!valid) fail(401, "Mot de passe incorrect.");
     await db.query("DELETE FROM login_attempts WHERE key=$1", [
       await hash(
         c.req.path +

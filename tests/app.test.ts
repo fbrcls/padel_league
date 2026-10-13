@@ -1,4 +1,6 @@
+import { deriveCredential, parsePasswordHash } from "../src/shared/password";
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { wrapPglite } from "../scripts/local-db";
 import { migrate, seed, createLinks } from "../scripts/setup";
@@ -91,6 +93,57 @@ afterAll(async () => {
   await pg.close();
 });
 describe("Import et accès", () => {
+  it("la connexion production vérifie la preuve sans PBKDF2 serveur ni exposition du vérificateur", async () => {
+    const normal = app;
+    const productionConfig = { ...config, local: false };
+    app = makeApp(db, productionConfig);
+    const parsed = parsePasswordHash(config.ADMIN_PASSWORD_HASH);
+    const proof = await deriveCredential(
+      "test-password-very-long",
+      parsed.salt,
+    );
+    const spy = vi
+      .spyOn(crypto.subtle, "deriveBits")
+      .mockRejectedValue(
+        new DOMException("Production PBKDF2 limit", "NotSupportedError"),
+      );
+    try {
+      const parameters = await request("/auth/admin/parameters", undefined);
+      expect(parameters.data).toEqual({
+        salt: parsed.salt,
+        iterations: 600000,
+        upgradeRequired: false,
+      });
+      expect(JSON.stringify(parameters.data)).not.toContain(parsed.verifier);
+      const login = await request("/auth/admin", undefined, { proof });
+      expect(login.status).toBe(200);
+      expect(login.cookie).toContain("Secure");
+      expect(
+        (await request("/auth/admin", undefined, { proof: parsed.verifier }))
+          .status,
+      ).toBe(401);
+      expect(
+        (
+          await request("/auth/admin", undefined, {
+            password: "test-password-very-long",
+          })
+        ).status,
+      ).toBe(422);
+      productionConfig.ADMIN_PASSWORD_HASH = `pbkdf2:600000:${parsed.salt}:${proof}`;
+      expect(
+        (await request("/auth/admin/parameters", undefined)).data
+          .upgradeRequired,
+      ).toBe(true);
+      expect((await request("/auth/admin", undefined, { proof })).status).toBe(
+        503,
+      );
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+      app = normal;
+    }
+  });
+
   it("importe exactement 66 paires dans 11 box, sans doublons lors de la répétition", async () => {
     const before = await db.query("SELECT count(*)::int AS n FROM players");
     await seed(db);

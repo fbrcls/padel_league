@@ -75,7 +75,7 @@ Les variantes de noms confirmées sont traitées par `aliases.json` et une migra
 
 ### Créer les secrets de production
 
-**Sans terminal :** télécharger [tools/generate-secrets.html](tools/generate-secrets.html), puis ouvrir le fichier sur son ordinateur dans un navigateur récent. Choisir et confirmer un mot de passe organisateur d’au moins 16 caractères ; l’outil génère `ADMIN_PASSWORD_HASH` et `LINK_ENCRYPTION_KEY` sans requête réseau. Enregistrer ces deux valeurs comme secrets dans **Cloudflare → Worker → Settings → Variables and Secrets**. Enregistrer également la chaîne de connexion Neon comme secret `DATABASE_URL`. Ne jamais transmettre ces valeurs dans une conversation. L’outil n’est pas inclus dans les fichiers publics de l’application et ne sauvegarde pas automatiquement les valeurs.
+**Sans terminal :** télécharger [tools/generate-secrets.html](tools/generate-secrets.html), puis ouvrir le fichier sur son ordinateur dans un navigateur récent. Choisir et confirmer un mot de passe organisateur d’au moins 16 caractères ; l’outil génère `ADMIN_PASSWORD_HASH` sans requête réseau. Pour une première installation uniquement, cocher aussi la génération de `LINK_ENCRYPTION_KEY`. Pour mettre à jour une installation existante, garder la case décochée et conserver la clé existante. Enregistrer ces deux valeurs comme secrets dans **Cloudflare → Worker → Settings → Variables and Secrets**. Enregistrer également la chaîne de connexion Neon comme secret `DATABASE_URL`. Ne jamais transmettre ces valeurs dans une conversation. L’outil n’est pas inclus dans les fichiers publics de l’application et ne sauvegarde pas automatiquement les valeurs.
 
 L’adresse de production configurée est `https://padel-league-la-cure.fbrcls.workers.dev`. Après l’ajout des trois secrets, enregistrer/déployer les changements dans Cloudflare, puis ouvrir `/organisateur` avec le mot de passe choisi. La base doit avoir été préparée avec les trois scripts de `db/neon`.
 
@@ -85,7 +85,7 @@ L’adresse de production configurée est `https://padel-league-la-cure.fbrcls.w
 npm run credentials:generate
 ```
 
-Cette commande génère un mot de passe organisateur long et aléatoire dans `.local/production-admin-password.txt`, une empreinte PBKDF2-SHA-256 à 600 000 itérations et une clé AES-GCM dans `.local/production-secrets.json`. Elle refuse d'écraser des secrets existants. Conserver ces fichiers dans un gestionnaire de secrets ; sauvegarder la clé de chiffrement séparément de la base.
+Cette commande génère un mot de passe organisateur long et aléatoire dans `.local/production-admin-password.txt`, un vérificateur SHA-256 d’une valeur dérivée par PBKDF2-SHA-256 à 600 000 itérations et une clé AES-GCM dans `.local/production-secrets.json`. Elle refuse d'écraser des secrets existants. Conserver ces fichiers dans un gestionnaire de secrets ; sauvegarder la clé de chiffrement séparément de la base.
 
 Pour un mot de passe personnalisé d'au moins 16 caractères, `npm run admin:password` reçoit le mot de passe via l'entrée standard et produit uniquement son empreinte. Rediriger cette empreinte vers un fichier privé. Éviter les arguments de commande, l'affichage et l'historique du terminal.
 
@@ -106,7 +106,7 @@ Changer `ADMIN_PASSWORD_HASH` invalide les sessions organisateur. Changer la cl�
 2. Vérifier que les trois secrets existent dans Cloudflare et que la base est préparée.
 3. Exécuter `npm run deploy`. Une garde refuse l'origine d'exemple.
 4. Vérifier la connexion organisateur, les paires, un score de démonstration et le Cron Trigger en conditions réelles. Aucun lien joueur n'est généré automatiquement en production : les créer depuis l'espace organisateur après ces vérifications.
-5. Mesurer les quotas CPU et la connexion à Neon. PBKDF2 a été vérifié dans le runtime Workers **local**, pas sur les quotas du compte gratuit distant. Si un quota empêche l'authentification, résoudre ce point avant ouverture, sans diminuer la sécurité silencieusement.
+5. Mesurer les quotas CPU et la connexion à Neon. La production Cloudflare refuse le calcul PBKDF2 à 600 000 itérations dans le Worker. Ce calcul est donc effectué dans le navigateur ; le Worker vérifie uniquement SHA-256 de la valeur dérivée. Le nombre d’itérations reste inchangé. Les anciens secrets `pbkdf2:600000:…` doivent être remplacés par `pbkdf2-client:600000:…`.
 6. Annuler les matchs de démonstration et distribuer les liens privés.
 
 La tâche planifiée tourne toutes les cinq minutes. Elle consulte Workers KV et ne réveille Neon que lorsqu’un repère d’échéance est arrivé, ou lors d’un rattrapage quotidien à minuit UTC. Cela évite de maintenir Neon actif en permanence. Un repère est enregistré avant la validation de chaque saisie ; en cas d’échec KV, la saisie est annulée et peut être réessayée. Elle confirme au maximum 100 résultats par passage et rattrape les suivants aux passages ultérieurs. Les pannes et quotas peuvent retarder la confirmation. L'espace organisateur affiche la dernière exécution et permet un rattrapage.
@@ -158,3 +158,11 @@ SELECT current_database() AS base,
 ```
 
 Une valeur `NULL` indique que la table n’est pas présente dans cette base. La présence des tables dans l’éditeur ne prouve pas que le Worker pointe sur la même branche ; vérifier la sélection de Neon → Connect sans partager la chaîne privée.
+
+### Mise à jour du secret organisateur après la limite PBKDF2 Cloudflare
+
+Retélécharger `tools/generate-secrets.html`, saisir le même mot de passe et laisser la génération de clé décochée. Copier uniquement le nouveau `ADMIN_PASSWORD_HASH` dans Cloudflare et enregistrer/déployer. Ne pas changer `LINK_ENCRYPTION_KEY` ni `DATABASE_URL`. Actualiser la page de connexion après le déploiement du nouveau code.
+
+La connexion récupère uniquement le sel public et les 600 000 itérations, calcule PBKDF2 dans le navigateur, puis transmet la valeur dérivée par HTTPS. Cette valeur est un credential sensible équivalent au mot de passe ; elle n’est ni sauvegardée ni journalisée. Le secret serveur contient **SHA-256 de cette valeur**, pas la valeur elle-même : connaître le vérificateur stocké ne permet pas de se connecter directement. Les essais restent limités et les sessions organisateur restent révoquées lors d’un changement de secret. Aucun ancien vérificateur PBKDF2 n’est accepté comme credential en production ; seule la base locale bénéficie d’une compatibilité pour ses accès de démonstration.
+
+La limite du runtime est confirmée par [le contrôle officiel de workerd](https://github.com/cloudflare/workerd/blob/main/src/workerd/api/crypto/impl.c++), qui produit `NotSupportedError` lorsque le plafond d’itérations est dépassé. Le runtime local ne reproduisait pas ce plafond de production. Les tests simulent maintenant un refus PBKDF2 serveur et vérifient que la connexion utilise uniquement le vérificateur léger.

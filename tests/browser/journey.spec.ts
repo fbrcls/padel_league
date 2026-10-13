@@ -11,6 +11,11 @@ test("parcours mobile : score, confirmation adverse, classement et organisateur"
     baseURL: origin,
   });
   const adminPage = await admin.newPage();
+  const loginPayloads: Record<string, unknown>[] = [];
+  adminPage.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/api/auth/admin"))
+      loginPayloads.push(r.postDataJSON());
+  });
   await adminPage.goto("/organisateur");
   await adminPage.getByLabel("Mot de passe organisateur").fill(password);
   await adminPage
@@ -19,6 +24,9 @@ test("parcours mobile : score, confirmation adverse, classement et organisateur"
   await expect(
     adminPage.getByRole("button", { name: "Déconnexion" }),
   ).toBeVisible();
+  expect(loginPayloads).toHaveLength(1);
+  expect(loginPayloads[0]).not.toHaveProperty("password");
+  expect(loginPayloads[0].proof).toMatch(/^[A-Za-z0-9+/]{43}=$/);
   const fetchLink = async (id: string) =>
     (
       await (
