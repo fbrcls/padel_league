@@ -1,5 +1,5 @@
 {
-  "name": "padel-league-la-cure",
+  "name": "padel-league",
   "account_id": "cf076240c489481a9a6af3fd7438a1f1",
   "main": "src/server/worker.ts",
   "compatibility_date": "2026-04-01",
@@ -14,7 +14,7 @@
     "crons": ["*/5 * * * *"],
   },
   "vars": {
-    "APP_ORIGIN": "https://padel-league-la-cure.fbrcls.workers.dev",
+    "APP_ORIGIN": "https://padel-league.fbrcls.workers.dev",
   },
   "kv_namespaces": [
     {
