@@ -1,5 +1,6 @@
 import { makeApp, runDue, type Config } from "./app";
 import { productionDb } from "./neon";
+import { validateBindings, reportError, errorResponse } from "./diagnostics";
 import { scheduleDeadline, dueKeys, dailySweep, type Queue } from "./queue";
 type Bindings = Config & {
   DATABASE_URL: string;
@@ -19,15 +20,33 @@ export default {
       );
       return new Response(response.body, { status: response.status, headers });
     }
-    const { db, close } = productionDb(env.DATABASE_URL);
+    let close: (() => Promise<void>) | undefined;
     try {
-      return await makeApp(db, {
+      validateBindings(env);
+      const connection = productionDb(env.DATABASE_URL.trim());
+      close = connection.close;
+      return await makeApp(connection.db, {
         ...env,
         scheduleDeadline: (date) =>
           scheduleDeadline(env.CONFIRMATION_QUEUE, date),
       }).fetch(request);
+    } catch (error) {
+      const errorId = reportError(
+        error,
+        new URL(request.url).pathname,
+        request.method,
+      );
+      return Response.json(errorResponse(errorId), {
+        status: 500,
+        headers: { "Cache-Control": "no-store" },
+      });
     } finally {
-      await close();
+      if (close)
+        try {
+          await close();
+        } catch (error) {
+          reportError(error, "/api/*", "OTHER");
+        }
     }
   },
   async scheduled(_event: unknown, env: Bindings) {

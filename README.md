@@ -129,3 +129,24 @@ Pour une sauvegarde complète en production, utiliser `pg_dump` avec une connexi
 - Faire essayer les parcours joueur et organisateur au responsable de la compétition.
 
 Les montées/descentes, coordonnées, notifications et une interface complète de gestion restent hors périmètre.
+
+## Diagnostic d’une erreur d’exécution
+
+Dans Cloudflare, ouvrir **Observability → Logs** sur le Worker et reproduire le problème. Les erreurs API affichent une référence dans l’application et journalisent un objet `API error` avec la même référence, une catégorie et, pour PostgreSQL, le code `sqlstate`. Le message brut, la pile, les paramètres SQL et les secrets ne sont jamais journalisés par ce diagnostic.
+
+- `configuration` : vérifier les noms de bindings indiqués dans les paramètres du Worker.
+- `database_schema` / `42P01` : table absente ; exécuter `db/bootstrap.sql` sur la base et la branche utilisées par `DATABASE_URL`.
+- `database_authentication` / `28P01` : vérifier la connexion dans Neon → Connect et mettre à jour le secret directement dans Cloudflare.
+- `database_permissions` / `42501` : vérifier les droits du rôle PostgreSQL.
+- `database_connection` : vérifier la disponibilité et la connectivité Neon.
+
+Pour vérifier la préparation sans exposer une connexion ni un mot de passe, exécuter dans Neon SQL Editor :
+
+```sql
+SELECT current_database() AS base,
+       to_regclass('public.login_attempts') AS login_attempts,
+       to_regclass('public.sessions') AS sessions,
+       to_regclass('public.players') AS players;
+```
+
+Une valeur `NULL` indique que la table n’est pas présente dans cette base. La présence des tables dans l’éditeur ne prouve pas que le Worker pointe sur la même branche ; vérifier la sélection de Neon → Connect sans partager la chaîne privée.

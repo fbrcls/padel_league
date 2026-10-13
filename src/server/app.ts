@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { reportError, errorResponse } from "./diagnostics";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
@@ -621,14 +622,8 @@ export function makeApp(db: Db, config: Config) {
         { error: "Données invalides. Vérifiez les champs du formulaire." },
         422,
       );
-    console.error("API error", e instanceof Error ? e.name : "unknown");
-    return c.json(
-      {
-        error:
-          "Une erreur technique est survenue. Réessayez ou contactez l’organisateur.",
-      },
-      500,
-    );
+    const errorId = reportError(e, c.req.path, c.req.method);
+    return c.json(errorResponse(errorId), 500);
   });
   app.notFound((c) => c.json({ error: "Route introuvable." }, 404));
   return app;

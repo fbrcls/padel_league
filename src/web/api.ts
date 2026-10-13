@@ -12,7 +12,14 @@ export async function api<T = any>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Une erreur est survenue.");
+  if (!response.ok)
+    throw new Error(
+      (result.error || "Une erreur est survenue.") +
+        (typeof result.errorId === "string" &&
+        /^[0-9a-f-]{36}$/.test(result.errorId)
+          ? " Référence : " + result.errorId
+          : ""),
+    );
   return result;
 }
 export const names = (e: { name_a: string; name_b: string }) =>
